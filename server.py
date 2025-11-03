@@ -1,11 +1,14 @@
-# server.py
+# server.py — Render JSON 서버 (한글/절대경로 완전호환)
 from flask import Flask, request, jsonify, send_file
-import json, os
+import json, os, sys
+
+# 🔧 한글 로그 깨짐 방지
+sys.stdout.reconfigure(encoding='utf-8')
 
 app = Flask(__name__)
 
-# 저장 폴더 (Render 서버 안)
-SAVE_DIR = "uploads"
+# ✅ 저장 폴더 (절대경로)
+SAVE_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 @app.route("/")
@@ -33,6 +36,7 @@ def upload_file():
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(content, f, ensure_ascii=False, indent=2)
 
+    print(f"✅ Saved file: {filename} → {filepath}")
     return jsonify({"ok": True, "saved": filename})
 
 # ==============================
@@ -56,7 +60,7 @@ def download_file(filename):
         return jsonify({"error": str(e)}), 500
 
 # ==============================
-# 📂 파일 목록 확인용 (브라우저 접근용)
+# 📂 파일 목록 확인용 (한글 완전 대응)
 # ==============================
 @app.route("/list", methods=["GET"])
 def list_files():
@@ -66,7 +70,10 @@ def list_files():
     """
     try:
         files = sorted(os.listdir(SAVE_DIR))
-        return jsonify({"files": files})
+        return app.response_class(
+            json.dumps({"files": files}, ensure_ascii=False, indent=2),
+            mimetype="application/json; charset=utf-8"
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -74,6 +81,5 @@ def list_files():
 # 🚀 실행
 # ==============================
 if __name__ == "__main__":
-    # Render가 내부적으로 포트를 지정하므로, os.environ에서 가져오도록 설정
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
